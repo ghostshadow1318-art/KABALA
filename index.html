@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kábala - Sistema de Inventario</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <style>
+        /* Estilos Generales y Fondo (Imagen 2) */
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-green: #00ff66;
+            --dark-bg: rgba(10, 15, 30, 0.85);
+            --panel-bg: rgba(16, 25, 45, 0.9);
+            --text-main: #e0f7fa;
+        }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-image: url('image_abdc37.jpg'); /* Fondo de la imagen 2 */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+        /* Efecto Cristal (Glassmorphism) para contenedores */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        /* Header y Logo (Imagen 1) */
+        header {
+            display: flex;
+            align-items: center;
+            padding: 10px 30px;
+            background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,243,255,0.2) 100%);
+            border-bottom: 2px solid var(--neon-blue);
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            margin-right: 20px;
+            filter: drop-shadow(0 0 5px var(--neon-blue));
+        }
+        h1 { margin: 0; font-size: 2.5em; letter-spacing: 2px; text-shadow: 0 0 10px var(--neon-blue); }
+        
+        /* Contenedor Principal */
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* VISTA PRINCIPAL (Imagen 3) */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .dash-box {
+            text-align: center;
+            border-top: 3px solid var(--neon-blue);
+        }
+        .dash-box h2 { font-size: 1.2em; color: #aaa; margin-top: 0; }
+        .dash-box .value { font-size: 2.5em; font-weight: bold; text-shadow: 0 0 10px var(--neon-green); color: var(--neon-green); }
+        
+        .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
+        button {
+            background: transparent;
+            color: var(--neon-blue);
+            border: 1px solid var(--neon-blue);
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        button:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 15px var(--neon-blue); }
+        button.btn-green { border-color: var(--neon-green); color: var(--neon-green); }
+        button.btn-green:hover { background: var(--neon-green); color: #000; box-shadow: 0 0 15px var(--neon-green); }
+
+        /* Carrusel (Imagen 3) */
+        h3 { border-bottom: 1px solid var(--neon-blue); padding-bottom: 5px; }
+        .carousel { display: flex; gap: 15px; overflow-x: auto; padding: 15px 0; scrollbar-width: thin; scrollbar-color: var(--neon-blue) transparent; }
+        .product-card {
+            min-width: 150px;
+            height: 180px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .product-card:hover { border-color: var(--neon-blue); transform: scale(1.05); box-shadow: 0 0 10px var(--neon-blue); }
+        .product-card.add-new { border: 1px dashed var(--neon-green); color: var(--neon-green); }
+        .product-card.add-new:hover { border-style: solid; box-shadow: 0 0 10px var(--neon-green); }
+
+        /* VISTA DE REGISTRO (Imagen 4) */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .input-group { display: flex; flex-direction: column; }
+        label { margin-bottom: 5px; font-size: 0.9em; color: #aaa; }
+        input {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #555;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            outline: none;
+        }
+        input:focus { border-color: var(--neon-blue); box-shadow: 0 0 8px var(--neon-blue); }
+        #barcodeContainer { text-align: center; margin-top: 15px; background: #fff; padding: 10px; border-radius: 5px; display: none; }
+        
+        /* TABLAS (Imágenes 5) */
+        .table-responsive { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { padding: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(0, 243, 255, 0.1); color: var(--neon-blue); text-transform: uppercase; font-size: 0.85em; }
+        tr:hover { background: rgba(255,255,255,0.05); }
+
+        /* Gráfico */
+        .chart-container { position: relative; height: 300px; width: 100%; margin-top: 30px; }
+
+        /* Utilidades */
+        .text-right { text-align: right; }
+        .mt-2 { margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <img src="image_abdee5.jpg" alt="Logo Kábala" class="logo">
+        <h1>Kábala</h1>
+    </header>
+
+    <div class="container">
+        
+        <div id="view-dashboard" class="view active">
+            <div class="dashboard-grid">
+                <div class="glass-panel dash-box">
+                    <h2>Inventario</h2>
+                    <div class="value" id="dash-inventory-count">0</div>
+                    <p>Productos Registrados</p>
+                </div>
+                <div class="glass-panel dash-box">
+                    <h2>Caja</h2>
+                    <div class="value" id="dash-balance">$0.00</div>
+                    <p>Saldo Total</p>
+                </div>
+                <div class="glass-panel dash-box" style="display: flex; flex-direction: column; justify-content: center;">
+                    <h2>Registrar</h2>
+                    <div class="btn-group">
+                        <button class="btn-green" onclick="openRegister('entrada')">Entrada</button>
+                        <button onclick="openRegister('salida')">Salida</button>
+                    </div>
+                    <button class="mt-2" style="width: 100%;" onclick="openGeneralInventory()">Ver inventario general</button>
+                </div>
+            </div>
+
+            <div class="glass-panel">
+                <h3>Carrusel de Productos</h3>
+                <div class="carousel" id="product-carousel">
+                    </div>
+            </div>
+        </div>
+
+        <div id="view-register" class="view glass-panel">
+            <h2 id="register-title">Registro</h2>
+            <form id="register-form" onsubmit="submitRegister(event)">
+                <input type="hidden" id="reg-type">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Fecha</label>
+                        <input type="date" id="reg-fecha" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Código</label>
+                        <input type="text" id="reg-codigo" placeholder="Ej. 1001" required oninput="checkProductData()">
+                    </div>
+                    <div class="input-group">
+                        <label>Producto (Nombre)</label>
+                        <input type="text" id="reg-nombre" placeholder="Nombre del producto" required oninput="checkProductDataByName()">
+                    </div>
+                    <div class="input-group">
+                        <label id="lbl-costo-precio">Costo/Precio</label>
+                        <input type="number" step="0.01" id="reg-valor" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Cantidad</label>
+                        <input type="number" id="reg-cantidad" required min="1">
+                    </div>
+                </div>
+                
+                <div id="barcodeContainer">
+                    <svg id="barcodeCanvas"></svg>
+                </div>
+
+                <div class="btn-group mt-2" style="justify-content: flex-start;">
+                    <button type="submit" class="btn-green">Guardar Registro</button>
+                    <button type="button" onclick="navigate('view-dashboard')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="view-product" class="view glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 id="prod-title">Detalle de Producto</h2>
+                <div>
+                    <button class="btn-green" onclick="openRegisterForCurrentProduct()">Registro</button>
+                    <button onclick="navigate('view-dashboard')">Volver</button>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th><th>Fecha</th><th>Producto</th>
+                            <th>Entrada</th><th>Salida</th><th>Existencia</th>
+                            <th>Costo</th><th>C. Promedio</th><th>Precio</th>
+                            <th>Debe</th><th>Haber</th><th>Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prod-table-body">
+                        </tbody>
+                </table>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="productChart"></canvas>
+            </div>
+        </div>
+
+        <div id="view-inventory" class="view glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Inventario General</h2>
+                <button onclick="navigate('view-dashboard')">Volver al Inicio</button>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Existencia</th>
+                            <th>Costo Promedio</th>
+                            <th>Debe Actual</th>
+                            <th>Haber Actual</th>
+                            <th>Saldo Actual</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inv-table-body">
+                        </tbody>
+                </table>
+            </div>
+            <h3 class="text-right mt-2" id="inv-total-saldo">Saldo Total: $0.00</h3>
+        </div>
+
+    </div>
+
+    <script>
+        // --- BASE DE DATOS SIMULADA ---
+        let products = [
+            { code: "1001", name: "Luz Neón 5m" },
+            { code: "1002", name: "Tarjeta Lógica V2" }
+        ];
+        // Transacciones (Kardex)
+        let transactions = [
+            { id: 1, date: "2026-05-28", type: "entrada", code: "1001", qty: 50, cost: 12.00, price: 0 },
+            { id: 2, date: "2026-05-29", type: "salida", code: "1001", qty: 10, cost: 0, price: 25.00 },
+            { id: 3, date: "2026-05-29", type: "entrada", code: "1002", qty: 20, cost: 45.00, price: 0 }
+        ];
+
+        let currentProductCode = null;
+        let chartInstance = null;
+
+        // --- NAVEGACIÓN ---
+        function navigate(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            if (viewId === 'view-dashboard') renderDashboard();
+        }
+
+        // --- DASHBOARD Y CARRUSEL ---
+        function renderDashboard() {
+            document.getElementById('dash-inventory-count').innerText = products.length;
+            
+            // Cálculo de caja: (Ventas) - (Compras)
+            let caja = 0;
+            transactions.forEach(t => {
+                if (t.type === 'entrada') caja -= (t.qty * t.cost);
+                if (t.type === 'salida') caja += (t.qty * t.price);
+            });
+            document.getElementById('dash-balance').innerText = `$${caja.toFixed(2)}`;
+
+            // Renderizar Carrusel
+            const car = document.getElementById('product-carousel');
+            car.innerHTML = '';
+            products.forEach((p, index) => {
+                car.innerHTML += `
+                    <div class="product-card" onclick="openProductView('${p.code}')">
+                        <i style="font-size: 2em; margin-bottom: 10px;">📦</i>
+                        <b>${p.name}</b>
+                        <small>Cod: ${p.code}</small>
+                    </div>`;
+            });
+            car.innerHTML += `
+                <div class="product-card add-new" onclick="openRegister('entrada')">
+                    <b style="font-size: 2em;">+</b>
+                    <span>Nuevo Producto</span>
+                </div>`;
+        }
+
+        // --- LÓGICA DE REGISTRO ---
+        function openRegister(type) {
+            document.getElementById('reg-type').value = type;
+            document.getElementById('register-title').innerText = type === 'entrada' ? 'Registrar Entrada' : 'Registrar Salida';
+            document.getElementById('lbl-costo-precio').innerText = type === 'entrada' ? 'Costo (Compra)' : 'Precio (Venta)';
+            
+            // Limpiar formulario
+            document.getElementById('reg-form').reset();
+            document.getElementById('reg-fecha').valueAsDate = new Date();
+            document.getElementById('barcodeContainer').style.display = 'none';
+            
+            navigate('view-register');
+        }
+
+        function openRegisterForCurrentProduct() {
+            openRegister('entrada'); // Por defecto abre entrada, el usuario puede ajustarlo
+            document.getElementById('reg-codigo').value = currentProductCode;
+            checkProductData();
+        }
+
+        // Auto-completar por código y generar código de barras
+        function checkProductData() {
+            const code = document.getElementById('reg-codigo').value;
+            const p = products.find(x => x.code === code);
+            if (p) {
+                document.getElementById('reg-nombre').value = p.name;
+                generateBarcode(code);
+            } else {
+                document.getElementById('barcodeContainer').style.display = 'none';
+            }
+        }
+
+        // Auto-completar por nombre
+        function checkProductDataByName() {
+            const name = document.getElementById('reg-nombre').value.toLowerCase();
+            const p = products.find(x => x.name.toLowerCase() === name);
+            if (p) {
+                document.getElementById('reg-codigo').value = p.code;
+                generateBarcode(p.code);
+            }
+        }
+
+        function generateBarcode(text) {
+            if(!text) return;
+            document.getElementById('barcodeContainer').style.display = 'block';
+            JsBarcode("#barcodeCanvas", text, {
+                format: "CODE128",
+                lineColor: "#000",
+                width: 2, height: 40, displayValue: true
+            });
+        }
+
+        function submitRegister(e) {
+            e.preventDefault();
+            const type = document.getElementById('reg-type').value;
+            const date = document.getElementById('reg-fecha').value;
+            const code = document.getElementById('reg-codigo').value;
+            const name = document.getElementById('reg-nombre').value;
+            const valor = parseFloat(document.getElementById('reg-valor').value);
+            const qty = parseInt(document.getElementById('reg-cantidad').value);
+
+            // Registrar producto si no existe
+            if (!products.find(x => x.code === code)) {
+                products.push({ code, name });
+            }
+
+            // Registrar transacción
+            transactions.push({
+                id: Date.now(),
+                date, type, code, qty,
+                cost: type === 'entrada' ? valor : 0,
+                price: type === 'salida' ? valor : 0
+            });
+
+            // Redirigir al producto
+            openProductView(code);
+        }
+
+        // --- LÓGICA DE PRODUCTO INDIVIDUAL (KARDEX) ---
+        function getProductKardex(code) {
+            let kardex = [];
+            let existencia = 0;
+            let saldo = 0;
+            let costoPromedio = 0;
+
+            const prodTxs = transactions.filter(t => t.code === code).sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            prodTxs.forEach(t => {
+                let debe = 0, haber = 0;
+
+                if (t.type === 'entrada') {
+                    existencia += t.qty;
+                    debe = t.qty * t.cost;
+                    saldo += debe;
+                    costoPromedio = saldo / existencia;
+                } else if (t.type === 'salida') {
+                    haber = t.qty * costoPromedio; // Costo de lo vendido
+                    existencia -= t.qty;
+                    saldo -= haber;
+                    // costoPromedio se mantiene igual en salidas
+                }
+
+                kardex.push({
+                    date: t.date, type: t.type,
+                    entrada: t.type === 'entrada' ? t.qty : 0,
+                    salida: t.type === 'salida' ? t.qty : 0,
+                    existencia,
+                    cost: t.cost, costoPromedio, price: t.price,
+                    debe, haber, saldo
+                });
+            });
+
+            return { kardex, existencia, costoPromedio, saldo };
+        }
+
+        function openProductView(code) {
+            currentProductCode = code;
+            const p = products.find(x => x.code === code);
+            document.getElementById('prod-title').innerText = `Detalles: ${p.name}`;
+            
+            const data = getProductKardex(code);
+            const tbody = document.getElementById('prod-table-body');
+            tbody.innerHTML = '';
+            
+            let chartLabels = [];
+            let chartEntradas = [];
+            let chartSalidas = [];
+
+            data.kardex.forEach(k => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${code}</td><td>${k.date}</td><td>${p.name}</td>
+                        <td style="color:var(--neon-green)">${k.entrada}</td>
+                        <td style="color:#ff4444">${k.salida}</td>
+                        <td><b>${k.existencia}</b></td>
+                        <td>$${k.cost.toFixed(2)}</td>
+                        <td>$${k.costoPromedio.toFixed(2)}</td>
+                        <td>$${k.price.toFixed(2)}</td>
+                        <td>$${k.debe.toFixed(2)}</td>
+                        <td>$${k.haber.toFixed(2)}</td>
+                        <td><b>$${k.saldo.toFixed(2)}</b></td>
+                    </tr>`;
+                
+                chartLabels.push(k.date);
+                chartEntradas.push(k.entrada);
+                chartSalidas.push(k.salida);
+            });
+
+            renderChart(chartLabels, chartEntradas, chartSalidas);
+            navigate('view-product');
+        }
+
+        // Gráfico con Chart.js
+        function renderChart(labels, entradas, salidas) {
+            const ctx = document.getElementById('productChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy(); // Evita superposición
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Entradas', data: entradas, backgroundColor: '#00ff66' },
+                        { label: 'Salidas', data: salidas, backgroundColor: '#ff4444' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#fff' } },
+                        x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#fff' } }
+                    },
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+        }
+
+        // --- LÓGICA INVENTARIO GENERAL ---
+        function openGeneralInventory() {
+            const tbody = document.getElementById('inv-table-body');
+            tbody.innerHTML = '';
+            let totalSaldoGlobal = 0;
+
+            products.forEach(p => {
+                const data = getProductKardex(p.code);
+                
+                // Calcular Debe Actual Total y Haber Actual Total para este producto
+                let totalDebe = data.kardex.reduce((sum, item) => sum + item.debe, 0);
+                let totalHaber = data.kardex.reduce((sum, item) => sum + item.haber, 0);
+                
+                totalSaldoGlobal += data.saldo;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${p.name}</b> (${p.code})</td>
+                        <td>${data.existencia}</td>
+                        <td>$${data.costoPromedio.toFixed(2)}</td>
+                        <td style="color:var(--neon-green)">$${totalDebe.toFixed(2)}</td>
+                        <td style="color:#ff4444">$${totalHaber.toFixed(2)}</td>
+                        <td><b>$${data.saldo.toFixed(2)}</b></td>
+                    </tr>`;
+            });
+
+            document.getElementById('inv-total-saldo').innerText = `Saldo Total: $${totalSaldoGlobal.toFixed(2)}`;
+            navigate('view-inventory');
+        }
+
+        // Iniciar
+        window.onload = renderDashboard;
+    </script>
+</body>
+</html>
